@@ -9,33 +9,17 @@ if __name__ == "__main__":
     
     
     import os
-    import shutil
-    import tempfile
-    import matplotlib.pyplot as plt
-    import PIL
     import torch
-    import torchvision.models as models
-    import numpy as np
     from sklearn.metrics import classification_report
-    from datainput import getTrainValData
     
     
-    from monai.apps import download_and_extract
-    from monai.config import print_config
     from monai.data import decollate_batch, DataLoader
-    from monai.metrics import ROCAUCMetric
-    from monai.networks.nets import DenseNet121
     from monai.transforms import (
         Activations,
         EnsureChannelFirst,
-        AsDiscrete,
         Compose,
         LoadImage,
-        RandFlip,
-        RandRotate,
-        RandZoom,
         ScaleIntensity,
-        Lambda,
         ResizeWithPadOrCrop,
     )
     from MedNISTDataset import MedNISTDataset
