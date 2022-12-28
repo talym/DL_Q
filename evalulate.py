@@ -28,10 +28,6 @@ if __name__ == "__main__":
     
     #define directories 
     root_dir = os.getcwd()
-    data_dir  = os.path.join(root_dir, "SliceClass\\TrainValidImg")
-    test_data_dir  = os.path.join(root_dir, "SliceClass\\Test_img")
-    training_validation_data_file = os.path.join(root_dir, "SliceClass\\data_2classes.csv")
-    test_data_file = os.path.join(root_dir, "SliceClass\\data_test.csv")
     model_path = os.path.join(root_dir, "best_metric_modelResNet18_BCEWithLogitsLoss_pretrained_200.pth")
     
     class_names = ["good", "bad"]

@@ -15,7 +15,8 @@ ROOT_FOLDER = os.path.join("C:\\Users\\marko\\first rotation\\project\\ResultsSe
 
 def volume_to_slices_png(root_folder, volume_name):
     volume_path = os.path.join(ROOT_FOLDER, volume_name)
-    volume_image_path = os.path.join(volume_path, "data.nii.gz")
+    #volume_image_path = os.path.join(volume_path, "data.nii.gz")
+    volume_image_path = os.path.join(volume_path, "cropped.nii.gz")
     slices_folder = os.path.join(volume_path,"slices")
     try:
         os.mkdir(slices_folder)

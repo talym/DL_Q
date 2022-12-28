@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """
 Created on Tue Dec 20 13:14:44 2022
-
 @author: marko
 """
 
@@ -108,14 +107,20 @@ def present_evaluation(results_file, score):
     plt.title('Receiver operating characteristic example')
     plt.legend(loc="lower right")
     plt.show()
-    print(thresholds[(fpr < 0.35).sum()])
-    chosen_tr = thresholds[(fpr < 0.35).sum()]
+    chosen_tr = thresholds[(fpr < 0.3).sum()-1]
     df.loc[df[score] > chosen_tr, 'Pred'] = 1
     df.loc[df[score] <= chosen_tr, 'Pred'] = 0
     ac = sklearn.metrics.balanced_accuracy_score(df["ImageQuality"].fillna(0), df['Pred'])
     df.to_csv(results_file, index=False)
     print(ac)
 
+def get_num(value):
+    return(int(value.split('.')[0]))
+
+def sort_by_slice_num(qual_eval):
+    qual_eval['slice_num'] = qual_eval['image name'].map(get_num)
+    qual_eval = qual_eval.sort_values(by=['slice_num'])
+    return qual_eval
         
 def evaluate_volume_quality(root_folder, results_file, list_of_volumes):
     results_df = pd.read_csv(results_file)    
@@ -126,7 +131,8 @@ def evaluate_volume_quality(root_folder, results_file, list_of_volumes):
         volume_name = head_tail[len(head_tail)-1] 
         volume_path = os.path.join(root_folder, volume_name)
         s_path = os.path.join(volume_path, "slices")
-        qual_eval = pd.read_csv(os.path.join(s_path,"slices.csv"))
+        qual_eval = sort_by_slice_num(pd.read_csv(os.path.join(s_path,"slices.csv")))
+
         score_av = volume_quality_score_av(qual_eval)
         score_av_list.append(score_av)
         
@@ -139,7 +145,8 @@ def evaluate_volume_quality(root_folder, results_file, list_of_volumes):
     results_df.to_csv(results_file, index=False)
     return score_av_list
 
-def train_mil(root_folder, list_of_volumes):
+def train_mil(root_folder, list_of_volumes, model_type, model):
+    
     results_df = pd.read_csv(results_file)
     y = []
     bags = []
@@ -149,8 +156,12 @@ def train_mil(root_folder, list_of_volumes):
         volume_name = head_tail[len(head_tail)-1] 
         volume_path = os.path.join(root_folder, volume_name)
         s_path = os.path.join(volume_path, "slices")
-        qual_eval = pd.read_csv(os.path.join(s_path,"slices.csv"))
+        qual_eval = sort_by_slice_num(pd.read_csv(os.path.join(s_path,"slices.csv")))
+
         bag = np.array([a for a in qual_eval["Prob"] if a !=-1])
+        slice_dummy_n = np.linspace(0, bag.shape[0], 35) 
+        bag= np.interp(slice_dummy_n, range(bag.shape[0]), bag)
+        
         bag = np.expand_dims(bag, 1)
 
         bags.append(bag)
@@ -164,22 +175,21 @@ def train_mil(root_folder, list_of_volumes):
                 y.append(0)  
             else:
                 y.append(1)   
-
+    
     bags_train, bags_test, y_train,  y_test, name_train, name_test = train_test_split(bags,y, vol_names, train_size=0.66, shuffle=False)    
     
-    results_df["Train"]="No"
+    train_name = "Train" + "_" + model_type
+    results_df[train_name]="No"
     for n in name_train:
         ks = results_df['file'].str.contains(n)
-        results_df.loc[ks, 'Train']  = "Yes"
+        results_df.loc[ks, train_name]  = "Yes"
     
     # instantiate trainer
     trainer = Trainer()
     
     # preparing trainer
     metrics = ['acc', AUC]
-    #model = SVC(kernel='linear', C=1, class_weight='balanced')
-    model = RandomForestClassifier()
-    
+   
     pipeline = [('scale', StandarizerBagsList()), ('disc_mapping', MILESMapping())]
     trainer.prepare(model, preprocess_pipeline=pipeline ,metrics=metrics)
  
@@ -195,11 +205,24 @@ def train_mil(root_folder, list_of_volumes):
     print(trainer.predict_metrics(bags_test, y_test))
     out = trainer.predict(bags_test)
     print(out)
-    results_df["Pred MIL"]=""
-    for n,o in zip(name_test, out):
-        ks = results_df['file'].str.contains(n)
-        results_df.loc[ks, 'Pred MIL']  = o
+    pred_name = "Pred MIL" + '_' + model_type
+    results_df[pred_name]=""
     
+    correct = 0
+    correct_av = 0
+    for n,o,y in zip(name_test, out, y_test):
+        if(model_type == "svc") : #SVC prediction is opposite 
+            if(o == 1): o=0
+            else: o = 1
+        ks = results_df['file'].str.contains(n)
+        results_df.loc[ks, pred_name]  = o
+        if(o==y): correct += 1;    
+        index = results_df[results_df['file']==n].index.tolist()[0]
+        av_o = results_df.loc[index, 'Pred']       
+        if(av_o==y): correct_av += 1;    
+    
+    
+    print("MIL Calculated accuracy", correct/len(y_test), "AV Calculated accuracy",correct_av/len(y_test))
     results_df.to_csv(results_file, index=False)
 
     
@@ -210,7 +233,7 @@ if __name__ == "__main__":
     results_folder = os.path.join(ROOT_FOLDER, "results")
     results_file = os.path.join(results_folder, "combined_results.csv")        
     volume = "Pat549_Se07_Res0.7813_0.7813_Spac5.0.nii.gz"
-    MODELS_ROOT = "C:\\Users\\marko\\first rotation\\project\\DL"
+    MODELS_ROOT = "C:\\Users\\marko\\first rotation\\project\\DL_Q"
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = setModel("ResNet18")      
@@ -236,6 +259,7 @@ if __name__ == "__main__":
     present_evaluation(results_file, "Qaulity Score Av. Slices")
 
     #multiple instance learning
-    train_mil(ROOT_FOLDER, list_of_volumes)
-    
+    classifiers = {'rf' : RandomForestClassifier(n_estimators=100), 'svc':SVC(kernel='linear', C=1, class_weight='balanced')}
+    for clsname, rfg in classifiers.items():
+        train_mil(ROOT_FOLDER, list_of_volumes, clsname, rfg)
     

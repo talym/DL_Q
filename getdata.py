@@ -37,7 +37,7 @@ def getData():
     data_dir  = os.path.join(root_dir, "SliceClass\\TrainValidImg")
     test_data_dir  = os.path.join(root_dir, "SliceClass\\Test_img")
     training_validation_data_file = os.path.join(root_dir, "SliceClass\\data_2classes.csv")
-    test_data_file = os.path.join(root_dir, "SliceClass\\data_test.csv")
+    test_data_file = os.path.join(root_dir, "SliceClass\\data_test_2class.csv")
     print(root_dir, data_dir )
     
     set_determinism(seed=0)
